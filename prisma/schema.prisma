@@ -1,0 +1,399 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = []
+}
+
+datasource db {
+  provider     = "mongodb"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+// ─── ENUMS ──────────────────────────────────────────────
+
+enum UserRole {
+  USER
+  VENDOR
+}
+
+enum PropertyCategory {
+  HOTEL
+  APARTMENT
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  PAID
+  CANCELLED
+  COMPLETED
+  CHECKED_IN
+}
+
+enum PaymentMethod {
+  PAYSTACK
+  FLUTTERWAVE
+  INTERSWITCH
+  WALLET
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+  REFUND
+  PAYOUT
+}
+
+// ─── USER ───────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  email        String    @unique
+  phone        String?
+  password     String
+  gender       String?
+  avatar       String?
+  role         UserRole  @default(USER)
+  isVerified   Boolean   @default(false)
+  otpCode      String?
+  otpExpiresAt DateTime?
+  refreshToken String?
+  referralCode String?   @unique
+  referredBy   String?
+
+  bookings  Booking[]
+  favorites Favorite[]
+  reviews   Review[]
+  addresses Address[]
+  wallet    Wallet?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+// ─── VENDOR ─────────────────────────────────────────────
+
+model Vendor {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  businessName String
+  email        String    @unique
+  phone        String?
+  password     String
+  avatar       String?
+  isVerified   Boolean   @default(false)
+  otpCode      String?
+  otpExpiresAt DateTime?
+  refreshToken String?
+
+  bankName      String?
+  accountNumber String?
+  accountName   String?
+  payoutActive  Boolean @default(false)
+
+  properties Property[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("vendors")
+}
+
+// ─── PROPERTY ───────────────────────────────────────────
+
+model Property {
+  id           String           @id @default(auto()) @map("_id") @db.ObjectId
+  vendorId     String           @db.ObjectId
+  vendor       Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  name         String
+  address      String
+  area         String
+  description  String
+  category     PropertyCategory
+  rating       Float            @default(0)
+  totalRatings Int              @default(0)
+  isActive     Boolean          @default(true)
+
+  images    PropertyImage[]
+  rooms     Room[]
+  amenities PropertyAmenity[]
+  bookings  Booking[]
+  reviews   Review[]
+  favorites Favorite[]
+  gallery   GalleryImage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("properties")
+}
+
+model PropertyImage {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  propertyId String   @db.ObjectId
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  url        String
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@map("property_images")
+}
+
+model GalleryImage {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  propertyId String   @db.ObjectId
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  url        String
+  label      String
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@map("gallery_images")
+}
+
+// ─── ROOM ───────────────────────────────────────────────
+
+model Room {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  propertyId String   @db.ObjectId
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  name       String
+  type       String
+  bedType    String
+  beds       Int
+  baths      Int
+  maxGuests  Int
+  price      Float
+  priceNote  String?
+  area       String?
+  rating     Float    @default(0)
+  available  Boolean  @default(true)
+  roomsLeft  Int?
+
+  images   RoomImage[]
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("rooms")
+}
+
+model RoomImage {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  roomId    String   @db.ObjectId
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  url       String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("room_images")
+}
+
+// ─── CATEGORY ───────────────────────────────────────────
+
+model Category {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String   @unique
+  image     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("categories")
+}
+
+// ─── AMENITY SYSTEM ─────────────────────────────────────
+
+model AmenityCategory {
+  id        String        @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  icon      String
+  order     Int           @default(0)
+  items     AmenityItem[]
+  createdAt DateTime      @default(now())
+
+  @@map("amenity_categories")
+}
+
+model AmenityItem {
+  id         String            @id @default(auto()) @map("_id") @db.ObjectId
+  categoryId String            @db.ObjectId
+  category   AmenityCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name       String
+  icon       String
+  properties PropertyAmenity[]
+  createdAt  DateTime          @default(now())
+
+  @@map("amenity_items")
+}
+
+model PropertyAmenity {
+  id         String      @id @default(auto()) @map("_id") @db.ObjectId
+  propertyId String      @db.ObjectId
+  property   Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  amenityId  String      @db.ObjectId
+  amenity    AmenityItem @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+  enabled    Boolean     @default(true)
+
+  @@unique([propertyId, amenityId])
+  @@map("property_amenities")
+}
+
+// ─── BOOKING ────────────────────────────────────────────
+
+model Booking {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  propertyId String   @db.ObjectId
+  property   Property @relation(fields: [propertyId], references: [id])
+  roomId     String   @db.ObjectId
+  room       Room     @relation(fields: [roomId], references: [id])
+
+  guestName  String
+  guestEmail String
+  guestPhone String
+
+  checkIn  DateTime
+  checkOut DateTime
+  nights   Int
+  guests   Int
+  roomType String
+
+  subtotal    Float
+  serviceFee  Float   @default(0)
+  deliveryFee Float   @default(0)
+  total       Float
+  priceNote   String?
+
+  specialRequests String?
+  status          BookingStatus @default(PENDING)
+
+  payment     Payment?
+  promoCode   PromoCode? @relation(fields: [promoCodeId], references: [id])
+  promoCodeId String?    @db.ObjectId
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("bookings")
+}
+
+// ─── PAYMENT ────────────────────────────────────────────
+
+model Payment {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  bookingId       String        @unique @db.ObjectId
+  booking         Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  method          PaymentMethod
+  reference       String        @unique
+  amount          Float
+  status          PaymentStatus @default(PENDING)
+  gatewayResponse Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("payments")
+}
+
+// ─── PROMO CODE ─────────────────────────────────────────
+
+model PromoCode {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  code            String    @unique
+  discountPercent Float?
+  discountAmount  Float?
+  maxUses         Int?
+  currentUses     Int       @default(0)
+  expiresAt       DateTime?
+  isActive        Boolean   @default(true)
+  bookings        Booking[]
+  createdAt       DateTime  @default(now())
+
+  @@map("promo_codes")
+}
+
+// ─── FAVORITE ───────────────────────────────────────────
+
+model Favorite {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  propertyId String   @db.ObjectId
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, propertyId])
+  @@map("favorites")
+}
+
+// ─── REVIEW ─────────────────────────────────────────────
+
+model Review {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  propertyId String   @db.ObjectId
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  rating     Float
+  comment    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, propertyId])
+  @@map("reviews")
+}
+
+// ─── ADDRESS ────────────────────────────────────────────
+
+model Address {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label     String
+  address   String
+  city      String
+  state     String
+  country   String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("addresses")
+}
+
+// ─── WALLET ─────────────────────────────────────────────
+
+model Wallet {
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String        @unique @db.ObjectId
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance      Float         @default(0)
+  transactions Transaction[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("wallets")
+}
+
+model Transaction {
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  walletId    String          @db.ObjectId
+  wallet      Wallet          @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  type        TransactionType
+  amount      Float
+  description String
+  reference   String?
+  createdAt   DateTime        @default(now())
+
+  @@map("transactions")
+}
