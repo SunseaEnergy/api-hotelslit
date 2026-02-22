@@ -57,7 +57,7 @@ export class AmenitiesService {
       }),
     );
 
-    await this.prisma.$transaction(operations);
+    await Promise.all(operations);
     return { message: 'Amenities updated' };
   }
 
