@@ -39,7 +39,7 @@ export class PropertiesService {
         take: limit,
         orderBy,
         include: {
-          images: { orderBy: { order: 'asc' }, take: 5 },
+          gallery: { orderBy: { order: 'asc' }, take: 5 },
           rooms: {
             orderBy: { price: 'asc' },
             take: 1,
@@ -56,12 +56,13 @@ export class PropertiesService {
       return {
         id: p.id,
         name: p.name,
-        image: p.images[0]?.url || null,
-        images: p.images.map((i) => i.url),
+        image: p.gallery[0]?.url || null,
+        images: p.gallery.map((i) => ({ id: i.id, url: i.url, order: i.order })),
         rating: p.rating,
         address: p.address,
         area: p.area,
         category: p.category,
+        isActive: p.isActive,
         beds: cheapestRoom?.beds || 0,
         baths: cheapestRoom?.baths || 0,
         type: cheapestRoom?.type || '',
@@ -148,6 +149,7 @@ export class PropertiesService {
       where: { vendorId },
       include: {
         images: { orderBy: { order: 'asc' }, take: 1 },
+        gallery: { orderBy: { order: 'asc' } },
         _count: { select: { rooms: true, bookings: true } },
       },
       orderBy: { createdAt: 'desc' },

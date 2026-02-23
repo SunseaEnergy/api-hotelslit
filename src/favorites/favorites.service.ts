@@ -1,4 +1,4 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 @Injectable()
@@ -11,8 +11,8 @@ export class FavoritesService {
       include: {
         property: {
           include: {
-            images: { take: 1, orderBy: { order: 'asc' } },
-            rooms: { take: 1, orderBy: { price: 'asc' }, where: { available: true } },
+            gallery: { orderBy: { order: 'asc' } },
+            rooms: { orderBy: { price: 'asc' }, where: { available: true } },
           },
         },
       },
@@ -22,26 +22,38 @@ export class FavoritesService {
     return favorites.map((f) => ({
       id: f.id,
       propertyId: f.property.id,
-      name: f.property.name,
-      image: f.property.images[0]?.url || null,
-      rating: f.property.rating,
-      address: f.property.address,
-      area: f.property.area,
-      price: f.property.rooms[0]?.price || 0,
-      priceNote: f.property.rooms[0]?.priceNote || '',
-      category: f.property.category,
       createdAt: f.createdAt,
+      property: {
+        id: f.property.id,
+        vendorId: f.property.vendorId,
+        name: f.property.name,
+        address: f.property.address,
+        area: f.property.area,
+        description: f.property.description,
+        category: f.property.category,
+        rating: f.property.rating,
+        totalRatings: f.property.totalRatings,
+        isActive: f.property.isActive,
+        images: f.property.gallery.map((g) => ({ id: g.id, url: g.url, order: g.order })),
+        createdAt: f.property.createdAt,
+        updatedAt: f.property.updatedAt,
+      },
     }));
   }
 
   async add(userId: string, propertyId: string) {
-    try {
-      return await this.prisma.favorite.create({
-        data: { userId, propertyId },
-      });
-    } catch {
-      throw new ConflictException('Already in favorites');
+    const existing = await this.prisma.favorite.findFirst({
+      where: { userId, propertyId },
+    });
+
+    if (existing) {
+      await this.prisma.favorite.delete({ where: { id: existing.id } });
+      return { message: 'Removed from favorites' };
     }
+
+    return await this.prisma.favorite.create({
+      data: { userId, propertyId },
+    });
   }
 
   async remove(userId: string, propertyId: string) {
