@@ -6,12 +6,23 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as bcrypt from 'bcrypt';
-import { PrismaService } from '../prisma/prisma.service';
-import { UserSignupDto } from './dto/user-signup.dto';
-import { VendorSignupDto } from './dto/vendor-signup.dto';
-import { SigninDto } from './dto/signin.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { UserSignupDto } from './dto/user-signup.dto.js';
+import { VendorSignupDto } from './dto/vendor-signup.dto.js';
+import { SigninDto } from './dto/signin.dto.js';
+import { VerifyOtpDto } from './dto/verify-otp.dto.js';
+import {
+  USER_OTP_EVENT,
+  USER_FORGOT_PASSWORD_EVENT,
+  VENDOR_OTP_EVENT,
+  VENDOR_FORGOT_PASSWORD_EVENT,
+  UserOtpPayload,
+  UserForgotPasswordPayload,
+  VendorOtpPayload,
+  VendorForgotPasswordPayload,
+} from '../events/index.js';
 
 @Injectable()
 export class AuthService {
@@ -19,6 +30,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   // ─── USER AUTH ──────────────────────────────────────────
@@ -45,7 +57,10 @@ export class AuthService {
       },
     });
 
-    // TODO: Send OTP via email
+    this.eventEmitter.emit(
+      USER_OTP_EVENT,
+      new UserOtpPayload({ email: user.email, name: user.name, code: otpCode }),
+    );
 
     return {
       user: { id: user.id, name: user.name, email: user.email },
@@ -111,7 +126,10 @@ export class AuthService {
       data: { otpCode, otpExpiresAt },
     });
 
-    // TODO: Send OTP via email
+    this.eventEmitter.emit(
+      USER_OTP_EVENT,
+      new UserOtpPayload({ email: user.email, name: user.name, code: otpCode }),
+    );
     return { message: 'OTP resent to email' };
   }
 
@@ -135,7 +153,10 @@ export class AuthService {
       data: { otpCode, otpExpiresAt },
     });
 
-    // TODO: Send OTP via email
+    this.eventEmitter.emit(
+      USER_FORGOT_PASSWORD_EVENT,
+      new UserForgotPasswordPayload({ email: user.email, name: user.name, code: otpCode }),
+    );
     return { message: 'Password reset OTP sent' };
   }
 
@@ -178,7 +199,10 @@ export class AuthService {
       },
     });
 
-    // TODO: Send OTP via email
+    this.eventEmitter.emit(
+      VENDOR_OTP_EVENT,
+      new VendorOtpPayload({ email: vendor.email, name: vendor.businessName, code: otpCode }),
+    );
     return {
       vendor: { id: vendor.id, businessName: vendor.businessName, email: vendor.email },
       message: 'OTP sent to email',
@@ -242,6 +266,10 @@ export class AuthService {
       data: { otpCode, otpExpiresAt },
     });
 
+    this.eventEmitter.emit(
+      VENDOR_OTP_EVENT,
+      new VendorOtpPayload({ email: vendor.email, name: vendor.businessName, code: otpCode }),
+    );
     return { message: 'OTP resent to email' };
   }
 
@@ -265,6 +293,10 @@ export class AuthService {
       data: { otpCode, otpExpiresAt },
     });
 
+    this.eventEmitter.emit(
+      VENDOR_FORGOT_PASSWORD_EVENT,
+      new VendorForgotPasswordPayload({ email: vendor.email, name: vendor.businessName, code: otpCode }),
+    );
     return { message: 'Password reset OTP sent' };
   }
 

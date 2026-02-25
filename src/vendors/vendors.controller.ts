@@ -1,8 +1,8 @@
-import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { VendorsService } from './vendors.service.js';
 import { UpdateVendorProfileDto } from './dto/update-vendor-profile.dto.js';
-import { UpdatePayoutDto } from './dto/update-payout.dto.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { VendorAuthGuard } from '../auth/guards/vendor-auth.guard.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
@@ -12,7 +12,10 @@ import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 @UseGuards(JwtAuthGuard, VendorAuthGuard)
 @Controller('vendors')
 export class VendorsController {
-  constructor(private readonly vendorsService: VendorsService) {}
+  constructor(
+    private readonly vendorsService: VendorsService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   @Get('me')
   getProfile(@CurrentUser('id') vendorId: string) {
@@ -35,21 +38,26 @@ export class VendorsController {
     return this.vendorsService.updateAvatar(vendorId, avatarUrl);
   }
 
-  @Get('me/payout')
-  getPayoutSettings(@CurrentUser('id') vendorId: string) {
-    return this.vendorsService.getPayoutSettings(vendorId);
+  @Post('me/stripe/onboard')
+  initiateStripeOnboarding(@CurrentUser('id') vendorId: string) {
+    return this.vendorsService.initiateStripeOnboarding(vendorId);
   }
 
-  @Patch('me/payout')
-  updatePayoutSettings(
-    @CurrentUser('id') vendorId: string,
-    @Body() dto: UpdatePayoutDto,
-  ) {
-    return this.vendorsService.updatePayoutSettings(vendorId, dto);
+  @Get('me/stripe/status')
+  getStripeStatus(@CurrentUser('id') vendorId: string) {
+    return this.vendorsService.getStripeStatus(vendorId);
   }
 
   @Get('me/stats')
   getDashboardStats(@CurrentUser('id') vendorId: string) {
     return this.vendorsService.getDashboardStats(vendorId);
+  }
+
+  @Post('me/push-token')
+  savePushToken(
+    @CurrentUser('id') vendorId: string,
+    @Body('token') token: string,
+  ) {
+    return this.notificationsService.saveVendorPushToken(vendorId, token);
   }
 }

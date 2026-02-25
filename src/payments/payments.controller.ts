@@ -1,10 +1,20 @@
-import { Controller, Post, Param, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Param,
+  Body,
+  UseGuards,
+  Req,
+  Headers,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { PaymentsService } from './payments.service.js';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { UserAuthGuard } from '../common/guards/user-auth.guard.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
+import type { RawBodyRequest } from '@nestjs/common';
+import type { Request } from 'express';
 
 @ApiTags('Payments')
 @Controller('payments')
@@ -28,18 +38,11 @@ export class PaymentsController {
     return this.paymentsService.verify(reference);
   }
 
-  @Post('webhook/paystack')
-  webhookPaystack(@Body() body: any) {
-    return this.paymentsService.handleWebhook('paystack', body);
-  }
-
-  @Post('webhook/flutterwave')
-  webhookFlutterwave(@Body() body: any) {
-    return this.paymentsService.handleWebhook('flutterwave', body);
-  }
-
-  @Post('webhook/interswitch')
-  webhookInterswitch(@Body() body: any) {
-    return this.paymentsService.handleWebhook('interswitch', body);
+  @Post('webhook/stripe')
+  stripeWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Headers('stripe-signature') signature: string,
+  ) {
+    return this.paymentsService.handleStripeWebhook(req.rawBody!, signature);
   }
 }

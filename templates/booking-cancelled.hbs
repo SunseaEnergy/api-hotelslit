@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Booking Cancelled</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+    body { font-family: 'Poppins', 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333333; margin: 0; padding: 0; background-color: #f9f9f9; }
+    .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #eeeeee; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    .header { background-color: #dc2626; padding: 30px 40px; }
+    .header h1 { color: #ffffff; margin: 0; font-size: 22px; font-weight: 600; }
+    .content { padding: 40px; }
+    h2 { font-size: 16px; font-weight: 600; margin: 25px 0 12px 0; color: #000000; }
+    p { margin: 0 0 16px 0; color: #333333; font-weight: 300; }
+    strong { font-weight: 500; }
+    .details-box { background-color: #fef2f2; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #fecaca; }
+    .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #fee2e2; }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { color: #777777; font-size: 14px; }
+    .detail-value { color: #000000; font-size: 14px; font-weight: 500; }
+    .footer { padding: 20px 40px; text-align: center; color: #777777; font-size: 13px; border-top: 1px solid #eeeeee; font-weight: 300; }
+    .divider { border-top: 1px solid #eeeeee; margin: 25px 0; }
+    @media only screen and (max-width: 600px) { .content, .footer, .header { padding: 25px 20px; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Booking Cancelled</h1>
+    </div>
+    <div class="content">
+      <p>Hi <strong>{{name}}</strong>,</p>
+      <p>We're sorry to let you know that your booking at <strong>{{property_name}}</strong> has been cancelled. If you have any questions, please contact support.</p>
+
+      <h2>Cancelled Booking Details</h2>
+      <div class="details-box">
+        <div class="detail-row">
+          <span class="detail-label">Property</span>
+          <span class="detail-value">{{property_name}}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Check-in</span>
+          <span class="detail-value">{{check_in}}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Check-out</span>
+          <span class="detail-value">{{check_out}}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Booking ID</span>
+          <span class="detail-value">#{{booking_id}}</span>
+        </div>
+      </div>
+
+      <p>You're welcome to search for other available properties on the <strong>{{app_name}}</strong> app.</p>
+      <p>Warm Regards,<br>The {{app_name}} Team</p>
+      <div class="divider"></div>
+      <p style="font-style: italic; color: #777777; font-size: 13px;">This is an automated message. Please do not reply directly to this email.</p>
+    </div>
+    <div class="footer">&copy; {{current_year}} {{app_name}}. All rights reserved.</div>
+  </div>
+</body>
+</html>

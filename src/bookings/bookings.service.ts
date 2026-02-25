@@ -6,11 +6,15 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateBookingDto } from './dto/create-booking.dto.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { BookingStatus } from '@prisma/client';
 
 @Injectable()
 export class BookingsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   // ─── USER BOOKINGS ────────────────────────────────────
 
@@ -92,6 +96,25 @@ export class BookingsService {
       },
     });
 
+    // Notify vendor of new booking (push + email)
+    this.notifications.sendToVendor(room.property.vendorId, {
+      title: 'New Booking Request',
+      body: `${dto.guestName} has booked at ${room.property.name}`,
+      data: { bookingId: booking.id, type: 'new_booking' },
+    });
+    void this.notifications.sendBookingCreatedEmails({
+      guestEmail: dto.guestEmail,
+      guestName: dto.guestName,
+      propertyName: room.property.name,
+      roomName: booking.room.name,
+      checkIn: checkIn.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      checkOut: checkOut.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      nights,
+      total,
+      bookingId: booking.id,
+      vendorId: room.property.vendorId,
+    });
+
     return booking;
   }
 
@@ -145,16 +168,26 @@ export class BookingsService {
   async cancelUserBooking(userId: string, bookingId: string) {
     const booking = await this.prisma.booking.findFirst({
       where: { id: bookingId, userId },
+      include: { property: { select: { vendorId: true, name: true } } },
     });
     if (!booking) throw new NotFoundException('Booking not found');
     if (booking.status !== BookingStatus.PENDING && booking.status !== BookingStatus.CONFIRMED) {
       throw new BadRequestException('Cannot cancel this booking');
     }
 
-    return this.prisma.booking.update({
+    const updated = await this.prisma.booking.update({
       where: { id: bookingId },
       data: { status: BookingStatus.CANCELLED },
     });
+
+    // Notify vendor that customer cancelled
+    this.notifications.sendToVendor(booking.property.vendorId, {
+      title: 'Booking Cancelled',
+      body: `${booking.guestName} cancelled their booking at ${booking.property.name}`,
+      data: { bookingId, type: 'booking_cancelled_by_user' },
+    });
+
+    return updated;
   }
 
   async getActiveBookings(userId: string) {
@@ -290,10 +323,25 @@ export class BookingsService {
     if (booking.status !== BookingStatus.PENDING)
       throw new BadRequestException('Can only accept pending bookings');
 
-    return this.prisma.booking.update({
+    const updated = await this.prisma.booking.update({
       where: { id: bookingId },
       data: { status: BookingStatus.CONFIRMED },
     });
+
+    this.notifications.sendToUser(booking.userId, {
+      title: 'Booking Confirmed!',
+      body: `Your booking at ${booking.property.name} has been confirmed.`,
+      data: { bookingId, type: 'booking_confirmed' },
+    });
+    void this.notifications.sendBookingAcceptedEmail(
+      booking.userId,
+      booking.property.name,
+      booking.checkIn.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      booking.checkOut.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      bookingId,
+    );
+
+    return updated;
   }
 
   async declineBooking(vendorId: string, bookingId: string) {
@@ -301,10 +349,25 @@ export class BookingsService {
     if (booking.status !== BookingStatus.PENDING)
       throw new BadRequestException('Can only decline pending bookings');
 
-    return this.prisma.booking.update({
+    const updated = await this.prisma.booking.update({
       where: { id: bookingId },
       data: { status: BookingStatus.CANCELLED },
     });
+
+    this.notifications.sendToUser(booking.userId, {
+      title: 'Booking Update',
+      body: `Your booking request at ${booking.property.name} was not accepted.`,
+      data: { bookingId, type: 'booking_declined' },
+    });
+    void this.notifications.sendBookingCancelledEmail(
+      booking.userId,
+      booking.property.name,
+      booking.checkIn.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      booking.checkOut.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      bookingId,
+    );
+
+    return updated;
   }
 
   async checkInBooking(vendorId: string, bookingId: string) {
@@ -312,10 +375,25 @@ export class BookingsService {
     if (booking.status !== BookingStatus.CONFIRMED && booking.status !== BookingStatus.PAID)
       throw new BadRequestException('Can only check-in confirmed or paid bookings');
 
-    return this.prisma.booking.update({
+    const updated = await this.prisma.booking.update({
       where: { id: bookingId },
       data: { status: BookingStatus.CHECKED_IN },
     });
+
+    this.notifications.sendToUser(booking.userId, {
+      title: 'Checked In!',
+      body: `You have been checked in at ${booking.property.name}. Enjoy your stay!`,
+      data: { bookingId, type: 'check_in' },
+    });
+    void this.notifications.sendCheckInEmail(
+      booking.userId,
+      booking.property.name,
+      booking.checkIn.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      booking.checkOut.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      bookingId,
+    );
+
+    return updated;
   }
 
   async cancelVendorBooking(vendorId: string, bookingId: string) {
@@ -323,10 +401,25 @@ export class BookingsService {
     if (booking.status !== BookingStatus.CONFIRMED && booking.status !== BookingStatus.PAID)
       throw new BadRequestException('Cannot cancel this booking');
 
-    return this.prisma.booking.update({
+    const updated = await this.prisma.booking.update({
       where: { id: bookingId },
       data: { status: BookingStatus.CANCELLED },
     });
+
+    this.notifications.sendToUser(booking.userId, {
+      title: 'Booking Cancelled',
+      body: `Your booking at ${booking.property.name} has been cancelled by the host.`,
+      data: { bookingId, type: 'booking_cancelled_by_vendor' },
+    });
+    void this.notifications.sendBookingCancelledEmail(
+      booking.userId,
+      booking.property.name,
+      booking.checkIn.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      booking.checkOut.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      bookingId,
+    );
+
+    return updated;
   }
 
   async completeBooking(vendorId: string, bookingId: string) {
@@ -334,10 +427,18 @@ export class BookingsService {
     if (booking.status !== BookingStatus.CHECKED_IN)
       throw new BadRequestException('Can only complete checked-in bookings');
 
-    return this.prisma.booking.update({
+    const updated = await this.prisma.booking.update({
       where: { id: bookingId },
       data: { status: BookingStatus.COMPLETED },
     });
+
+    this.notifications.sendToUser(booking.userId, {
+      title: 'Stay Complete',
+      body: `Your stay at ${booking.property.name} is complete. Thank you for choosing us!`,
+      data: { bookingId, type: 'booking_completed' },
+    });
+
+    return updated;
   }
 
   async getVendorActiveBookings(vendorId: string) {
@@ -428,7 +529,7 @@ export class BookingsService {
   private async getVendorBookingOrFail(vendorId: string, bookingId: string) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { property: { select: { vendorId: true } } },
+      include: { property: { select: { vendorId: true, name: true } } },
     });
     if (!booking) throw new NotFoundException('Booking not found');
     if (booking.property.vendorId !== vendorId)

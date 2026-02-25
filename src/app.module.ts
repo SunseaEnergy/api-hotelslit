@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { UsersModule } from './users/users.module.js';
 import { VendorsModule } from './vendors/vendors.module.js';
@@ -20,7 +22,9 @@ import { UploadModule } from './upload/upload.module.js';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    EventEmitterModule.forRoot(),
     PrismaModule,
+    NotificationsModule,
     AuthModule,
     UsersModule,
     VendorsModule,

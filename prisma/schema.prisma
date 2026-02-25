@@ -31,9 +31,7 @@ enum BookingStatus {
 }
 
 enum PaymentMethod {
-  PAYSTACK
-  FLUTTERWAVE
-  INTERSWITCH
+  STRIPE
   WALLET
 }
 
@@ -68,6 +66,7 @@ model User {
   refreshToken String?
   referralCode String?   @unique
   referredBy   String?
+  pushToken    String?
 
   bookings  Booking[]
   favorites Favorite[]
@@ -95,10 +94,9 @@ model Vendor {
   otpExpiresAt DateTime?
   refreshToken String?
 
-  bankName      String?
-  accountNumber String?
-  accountName   String?
-  payoutActive  Boolean @default(false)
+  stripeAccountId          String?
+  stripeOnboardingComplete Boolean @default(false)
+  pushToken                String?
 
   properties Property[]
 
